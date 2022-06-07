@@ -4,9 +4,9 @@ from debug import *
 import time
 
 def transfer(sender, recipient, zoobars):
-    persondb = person_setup()
-    senderp = persondb.query(Person).get(sender)
-    recipientp = persondb.query(Person).get(recipient)
+    persondb = bank_setup()
+    senderp = persondb.query(Bank).get(sender)
+    recipientp = persondb.query(Bank).get(recipient)
 
     sender_balance = senderp.zoobars - zoobars
     recipient_balance = recipientp.zoobars + zoobars
@@ -29,8 +29,8 @@ def transfer(sender, recipient, zoobars):
     transferdb.commit()
 
 def balance(username):
-    db = person_setup()
-    person = db.query(Person).get(username)
+    db = bank_setup()
+    person = db.query(Bank).get(username)
     return person.zoobars
 
 def get_log(username):
@@ -44,5 +44,12 @@ def get_log(username):
                  'recipient': t.recipient,
                  'amount': t.amount })
     return r 
+
+def init(username):
+    db = bank_setup()
+    newbank = Bank()
+    newbank.username = username
+    db.add(newbank)
+    db.commit()
 
 

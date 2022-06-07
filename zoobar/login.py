@@ -1,3 +1,4 @@
+from http import client
 from flask import g, redirect, render_template, request, url_for, Markup
 from functools import wraps
 from debug import *
@@ -6,13 +7,15 @@ from zoodb import *
 import auth
 import bank
 import random
+import auth_client
+import bank_client
 
 class User(object):
     def __init__(self):
         self.person = None
 
     def checkLogin(self, username, password):
-        token = auth.login(username, password)
+        token = auth_client.login(username, password)
         if token is not None:
             return self.loginCookie(username, token)
         else:
@@ -26,7 +29,18 @@ class User(object):
         self.person = None
 
     def addRegistration(self, username, password):
-        token = auth.register(username, password)
+        person_db = person_setup()
+        person = person_db.query(Person).get(username)
+        if person:
+            return None
+        newperson = Person()
+        newperson.username = username
+        person_db.add(newperson)
+        person_db.commit()
+        
+        bank_client.init(username)
+        
+        token = auth_client.register(username, password)
         if token is not None:
             return self.loginCookie(username, token)
         else:
@@ -36,14 +50,14 @@ class User(object):
         if not cookie:
             return
         (username, token) = cookie.rsplit("#", 1)
-        if auth.check_token(username, token):
+        if auth_client.check_token(username, token):
             self.setPerson(username, token)
 
     def setPerson(self, username, token):
         persondb = person_setup()
         self.person = persondb.query(Person).get(username)
         self.token = token
-        self.zoobars = bank.balance(username)
+        self.zoobars = bank_client.balance(username)
 
 def logged_in():
     g.user = User()
