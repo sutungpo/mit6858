@@ -32,7 +32,7 @@ class sym_func_apply(sym_ast):
     return all(sa == oa for (sa, oa) in zip(self.args, o.args))
 
   def __hash__(self):
-    return functools.reduce(operator.xor, [hash(a) for a in self.args])
+    return functools.reduce(operator.xor, [hash(a) for a in self.args], 0)
 
 class sym_unop(sym_func_apply):
   def __init__(self, a):
@@ -180,6 +180,14 @@ class sym_plus(sym_binop):
 class sym_minus(sym_binop):
   def _z3expr(self, printable):
     return z3expr(self.a, printable) - z3expr(self.b, printable)
+
+class sym_multiply(sym_binop):
+  def _z3expr(self, printable):
+    return z3expr(self.a, printable) * z3expr(self.b, printable)
+
+class sym_divide(sym_binop):
+  def _z3expr(self, printable):
+    return z3expr(self.a, printable) / z3expr(self.b, printable)
 
 ## Exercise 2: your code here.
 ## Implement AST nodes for division and multiplication.
@@ -488,6 +496,31 @@ class concolic_int(int):
   def __rsub__(self, o):
     res = o - self.__v
     return concolic_int(sym_minus(ast(o), ast(self)), res)
+  
+  def __mul__(self, o):
+    if isinstance(o, concolic_int):
+      res = self.__v * o.__v
+    else:
+      res = self.__v * o
+    return concolic_int(sym_multiply(ast(self), ast(o)), res)
+
+  def __rmul__(self, o):
+    res = o * self.__v
+    return concolic_int(sym_minus(ast(o), ast(self)), res)
+
+  def __truediv__(self, o):
+    if isinstance(o, concolic_int):
+      res = self.__v / o.__v
+    else:
+      res = self.__v / o
+    return concolic_int(sym_multiply(ast(self), ast(o)), res)
+
+  def __floordiv__(self, o):
+    if isinstance(o, concolic_int):
+      res = self.__v // o.__v
+    else:
+      res = self.__v // o
+    return concolic_int(sym_divide(ast(self), ast(o)), res)
 
   ## Exercise 2: your code here.
   ## Implement symbolic division and multiplication.
@@ -913,7 +946,7 @@ def concolic_force_branch(b, branch_conds, branch_callers, verbose = 1):
   ## arguments, use the '*' operator documented at
   ## https://docs.python.org/3/tutorial/controlflow.html#unpacking-argument-lists
 
-  constraint = None
+  constraint = sym_and(sym_and(*branch_conds[0:b]), sym_not(branch_conds[b]))
 
   if verbose > 2:
     callers = branch_callers[b]
@@ -939,7 +972,15 @@ def concolic_find_input(constraint, ok_names, verbose=0):
   ## If Z3 was able to find example inputs that solve this
   ## constraint (i.e., ok == z3.sat), make a new input set
   ## containing the values from Z3's model, and return it.
-  return False, ConcreteValues()
+  ok, model = fork_and_check(constraint)
+  values = ConcreteValues()
+  if ok == z3.sat:
+    for name in ok_names:
+      if model[name]:
+        values.add(name, model[name])
+  else:
+    ok = None
+  return ok, values
 
 # Concolic execute func for many different paths and return all
 # computed results for those different paths.
@@ -989,7 +1030,16 @@ def concolic_execs(func, maxiter = 100, verbose = 0):
     ##
     ##   where caller is the corresponding value from the list of call
     ##   sites returned by concolic_find_input (i.e., branch_callers).
-
+    for i in range(0, len(branch_conds)):
+      constr = concolic_force_branch(i, branch_conds, branch_callers, verbose)
+      if constr in checked:
+        continue
+      checked.add(constr)
+      ok, values = concolic_find_input(constr, current_concrete_values.var_names(), verbose)
+      if ok:
+        values.inherit(current_concrete_values)
+        inputs.add(values, branch_callers[i])
+    
   if verbose > 0:
     print('Stopping after', iter, 'iterations')
 
