@@ -1,0 +1,17 @@
+Script started on 2022-06-17 02:38:41-0400
+Trying concrete value: {}
+Response: 404 NOT FOUND
+  Content-Type: text/html
+  Content-Length: 233
+  X-XSS-Protection: 0
+b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested URL was not found on the server.  If you entered the URL manually please check your spelling and try again.</p>\n'
+Traceback (most recent call last):
+  File "./check-symex-zoobar.py", line 90, in <module>
+    fuzzy.concolic_execs(test_stuff, maxiter=500, verbose=1)
+  File "/home/student/lab/symex/fuzzy.py", line 1065, in concolic_execs
+    ok, values = concolic_find_input(constr, current_concrete_values.var_names(), verbose)
+  File "/home/student/lab/symex/fuzzy.py", line 1006, in concolic_find_input
+    if model[name]:
+KeyError: 'referrer'
+
+Script done on 2022-06-17 02:38:49-0400
